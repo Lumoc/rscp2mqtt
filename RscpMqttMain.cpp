@@ -137,7 +137,7 @@ int handleMQTT(std::vector<RSCP_MQTT::cache_t> & v, int qos, bool retain) {
 
     for (std::vector<RSCP_MQTT::cache_t>::iterator it = v.begin(); it != v.end(); ++it) {
         if (it->publish && strcmp(it->topic, "") && strcmp(it->payload, "")) {
-            if ((!cfg.daemon) && isatty(STDOUT_FILENO)) printf("MQTT: publish topic >%s< payload >%s<\n", it->topic, it->payload);
+            if (cfg.verbose) printf("MQTT: publish topic >%s< payload >%s<\n", it->topic, it->payload);
             if (!cfg.dryrun) rc = mosquitto_publish(mosq, NULL, it->topic, strlen(it->payload), it->payload, qos, retain);
             it->publish = false;
         }
@@ -202,6 +202,25 @@ void logMessage(char *file, char *srcfile, int line, char *format, ...)
 int refreshCache(std::vector<RSCP_MQTT::cache_t> & v) {
     for (std::vector<RSCP_MQTT::cache_t>::iterator it = v.begin(); it != v.end(); ++it) {
         if (strcmp(it->payload, "")) it->publish = true;
+    }
+    return(1);
+}
+
+int storeIntegerValue(std::vector<RSCP_MQTT::cache_t> & c, uint32_t container, uint32_t tag, uint8_t value, int index) {
+    char buf[PAYLOAD_SIZE];
+    for (std::vector<RSCP_MQTT::cache_t>::iterator it = c.begin(); it != c.end(); ++it) {
+        if ((it->container == container) && (it->tag == tag) && (it->index == index)) {
+            if (it->bit_to_bool) {
+                if (value & it->bit_to_bool) strcpy(buf, "true");
+                else strcpy(buf, "false");
+            } else {
+                snprintf(buf, PAYLOAD_SIZE, it->fstring, value);
+            }
+            if (strcmp(it->payload, buf)) {
+                strcpy(it->payload, buf);
+                it->publish = true;
+            }
+        }
     }
     return(1);
 }
@@ -343,6 +362,15 @@ int createRequest(SRscpFrameBuffer * frameBuffer) {
         protocol.appendValue(&rootValue, TAG_EMS_REQ_MODE);
         protocol.appendValue(&rootValue, TAG_EMS_REQ_STATUS);
         protocol.appendValue(&rootValue, TAG_EMS_REQ_BALANCED_PHASES);
+
+        // Wallbox
+        if (cfg.wallbox) {
+            protocol.appendValue(&rootValue, TAG_EMS_REQ_POWER_WB_ALL);
+            protocol.appendValue(&rootValue, TAG_EMS_REQ_POWER_WB_SOLAR);
+            protocol.appendValue(&rootValue, TAG_EMS_REQ_BATTERY_TO_CAR_MODE);
+            protocol.appendValue(&rootValue, TAG_EMS_REQ_BATTERY_BEFORE_CAR_MODE);
+        }
+
         if (!e3dc_ts) {
             protocol.appendValue(&rootValue, TAG_INFO_REQ_SERIAL_NUMBER);
             protocol.appendValue(&rootValue, TAG_INFO_REQ_SW_RELEASE);
@@ -424,6 +452,18 @@ int createRequest(SRscpFrameBuffer * frameBuffer) {
 
         // request EP information
         protocol.appendValue(&rootValue, TAG_SE_REQ_EP_RESERVE);
+
+        // Wallbox
+        if (cfg.wallbox) {
+            SRscpValue WBContainer;
+            protocol.createContainerValue(&WBContainer, TAG_WB_REQ_DATA) ;
+            protocol.appendValue(&WBContainer, TAG_WB_INDEX,0); // first wallbox
+            protocol.appendValue(&WBContainer, TAG_WB_REQ_DEVICE_STATE);
+            protocol.appendValue(&WBContainer, TAG_WB_REQ_PM_ACTIVE_PHASES);
+            protocol.appendValue(&WBContainer, TAG_WB_REQ_EXTERN_DATA_ALG);
+            protocol.appendValue(&rootValue, WBContainer);
+            protocol.destroyValueData(WBContainer);
+        }
 
         // request db history information
         if (e3dc_ts) {
@@ -517,6 +557,37 @@ int createRequest(SRscpFrameBuffer * frameBuffer) {
                     if (it->container && (it->container != container)) {
                         protocol.createContainerValue(&ReqContainer, it->container);
                         if (it->container == TAG_SE_REQ_SET_EP_RESERVE) protocol.appendValue(&ReqContainer, TAG_SE_PARAM_INDEX, 0);
+                        // Wallbox
+                        if (cfg.wallbox && (it->container == TAG_WB_REQ_DATA)) {
+                            uint8_t wallboxExt[6];
+                            for (size_t i = 0; i < sizeof(wallboxExt); ++i) wallboxExt[i] = 0;
+                            if (sscanf(it->payload, "solar:%d", &wallboxExt[1]) == 1) {
+                                wallboxExt[0] = 1;
+                                logMessage(cfg.logfile, (char *)__FILE__, __LINE__, (char *)"Wallbox: solar mode.\n"); //DEBUG
+                            } else if (sscanf(it->payload, "mix:%d", &wallboxExt[1]) == 1) {
+                                wallboxExt[0] = 2;
+                                logMessage(cfg.logfile, (char *)__FILE__, __LINE__, (char *)"Wallbox: mix mode.\n"); //DEBUG
+                            } else if (!strcmp(it->payload, "stop")) {
+                                wallboxExt[0] = 1;
+                                wallboxExt[4] = 1;
+                                logMessage(cfg.logfile, (char *)__FILE__, __LINE__, (char *)"Wallbox: Stop charging.\n"); //DEBUG
+                            } else {
+                                logMessage(cfg.logfile, (char *)__FILE__, __LINE__, (char *)"Error: wallbox format incorrect. >%<\n", it->payload);
+                            }
+                            //for (size_t i = 0; i < sizeof(wallboxExt); ++i) logMessage(cfg.logfile, (char *)__FILE__, __LINE__, (char *)"Wallbox: wallboxExt[%d]=%d\n", i, wallboxExt[i]); //DEBUG
+                            if (wallboxExt[0] > 0) {
+                                if (wallboxExt[1] < 6) wallboxExt[1] = 6; // min current 6A
+                                else if (wallboxExt[1] > 32) wallboxExt[1] = 32; // max current 32A
+                                SRscpValue WBExtContainer;
+                                protocol.appendValue(&ReqContainer, TAG_WB_INDEX, 0); // first wallbox
+                                protocol.createContainerValue(&WBExtContainer, TAG_WB_REQ_SET_EXTERN);
+                                protocol.appendValue(&WBExtContainer, TAG_WB_EXTERN_DATA_LEN, sizeof(wallboxExt));
+                                protocol.appendValue(&WBExtContainer, TAG_WB_EXTERN_DATA, wallboxExt, sizeof(wallboxExt));
+                                protocol.appendValue(&ReqContainer, WBExtContainer);
+                                protocol.destroyValueData(WBExtContainer);
+                                logMessage(cfg.logfile, (char *)__FILE__, __LINE__, (char *)"Wallbox: container created. Current: %d A.\n", wallboxExt[1]); //DEBUG
+                            }
+                        }
                         container = it->container;
                     }
                     switch (it->type) {
@@ -630,6 +701,42 @@ int handleResponseValue(RscpProtocol *protocol, SRscpValue *response) {
         protocol->destroyValueData(containerData);
         break;
     }
+    case TAG_WB_DATA: {
+        std::vector<SRscpValue> containerData = protocol->getValueAsContainer(response);
+        for (size_t i = 0; i < containerData.size(); ++i) {
+            if (containerData[i].dataType == RSCP::eTypeError) {
+                // handle error for example access denied errors
+                uint32_t uiErrorCode = protocol->getValueAsUInt32(&containerData[i]);
+                logMessage(cfg.logfile, (char *)__FILE__, __LINE__, (char *)"Error: Tag 0x%08X received error code %u.\n", response->tag, uiErrorCode);
+                if (uiErrorCode == 6) { // Wallbox not available
+                    logMessage(cfg.logfile, (char *)__FILE__, __LINE__, (char *)"Error: Wallbox not available.\n");
+                    cfg.wallbox = false;
+                }
+            } else if (containerData[i].tag == TAG_WB_EXTERN_DATA_ALG) {
+                std::vector<SRscpValue> wallboxContent = protocol->getValueAsContainer(&containerData[i]);
+                for (size_t j = 0; j < wallboxContent.size(); ++j) {
+                    if (wallboxContent[j].dataType == RSCP::eTypeError) {
+                         uint32_t uiErrorCode = protocol->getValueAsUInt32(&wallboxContent[j]);
+                         logMessage(cfg.logfile, (char *)__FILE__, __LINE__, (char *)"Error: Tag 0x%08X received error code %u.\n", wallboxContent[j].tag, uiErrorCode);
+                    } else {
+                        switch (wallboxContent[j].tag) {
+                            case TAG_WB_EXTERN_DATA: {
+                                uint8_t wallboxExt[8];
+                                memcpy(&wallboxExt, &wallboxContent[j].data[0], sizeof(wallboxExt));
+                                for (size_t b = 0; b < sizeof(wallboxExt); ++b) {
+                                    storeIntegerValue(RSCP_MQTT::RscpMqttCache, TAG_WB_EXTERN_DATA_ALG, TAG_WB_EXTERN_DATA, wallboxExt[b], b);
+                                }
+                            }
+                         }
+                     }
+                 }
+            } else {
+                storeResponseValue(RSCP_MQTT::RscpMqttCache, protocol, &(containerData[i]), response->tag, 0);
+            }
+        }
+        protocol->destroyValueData(containerData);
+        break;
+    }
     case TAG_PVI_DATA: {
         std::vector<SRscpValue> containerData = protocol->getValueAsContainer(response);
         for (size_t i = 0; i < containerData.size(); ++i) {
@@ -648,7 +755,7 @@ int handleResponseValue(RscpProtocol *protocol, SRscpValue *response) {
                     int tracker;
                     std::vector<SRscpValue> container = protocol->getValueAsContainer(&containerData[i]);
                     for (size_t j = 0; j < container.size(); j++) {
-                        if ((container[j].tag == TAG_PVI_INDEX) ) {
+                        if (container[j].tag == TAG_PVI_INDEX) {
                             tracker = protocol->getValueAsUInt16(&container[j]);
                         }
                         else if ((container[j].tag == TAG_PVI_VALUE)) {
@@ -920,9 +1027,11 @@ int main(int argc, char *argv[]){
     int i = 0;
 
     cfg.daemon = false;
+    cfg.verbose = true;
 
     while (i < argc) {
         if (!strcmp(argv[i], "-d")) cfg.daemon = true;
+        if (!strcmp(argv[i], "-s")) cfg.verbose = false;
         i++;
     }
 
@@ -937,9 +1046,10 @@ int main(int argc, char *argv[]){
     cfg.mqtt_qos = 0;
     cfg.mqtt_retain = false;
     cfg.interval = 1;
-    cfg.pm_requests = true;
+    cfg.pvi_requests = true;
     cfg.pvi_tracker = 2;
     cfg.pm_requests = true;
+    cfg.wallbox = false;
     cfg.auto_refresh = false;
     cfg.dryrun = false;
     cfg.logfile = NULL;
@@ -983,6 +1093,8 @@ int main(int argc, char *argv[]){
                 cfg.pvi_tracker = atoi(value);
             else if ((strcasecmp(key, "PM_REQUESTS") == 0) && (strcasecmp(value, "true") == 0))
                 cfg.pm_requests = true;
+            else if ((strcasecmp(key, "WALLBOX") == 0) && (strcasecmp(value, "true") == 0))
+                cfg.wallbox = true;
             else if ((strcasecmp(key, "DRYRUN") == 0) && (strcasecmp(value, "true") == 0))
                 cfg.dryrun = true;
             else if ((strcasecmp(key, "AUTO_REFRESH") == 0) && (strcasecmp(value, "true") == 0))
@@ -1008,16 +1120,15 @@ int main(int argc, char *argv[]){
     if (cfg.pvi_requests) printf(" (%d strings/trackers)", cfg.pvi_tracker);
     printf("\n");
     printf("Requesting PM data = %s\n", cfg.pm_requests ? "true" : "false");
+    printf("Wallbox support = %s\n", cfg.wallbox ? "true" : "false");
     printf("Auto refresh mode = %s\n", cfg.auto_refresh ? "true" : "false");
 
     if (isatty(STDOUT_FILENO)) {
       printf("Stdout to terminal\n");
-      if (cfg.logfile) printf("Logfile >%s<\n", cfg.logfile);
     } else {
       printf("Stdout to pipe/file\n");
-      if (cfg.logfile) free(cfg.logfile);
-      cfg.logfile = NULL;
       cfg.daemon = false;
+      cfg.verbose = false;
     }
     printf("\n");
 
@@ -1038,6 +1149,10 @@ int main(int argc, char *argv[]){
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
+        cfg.verbose = false;
+    } else {
+        if (cfg.logfile) free(cfg.logfile);
+        cfg.logfile = NULL;
     }
 
     // MQTT init

@@ -62,7 +62,7 @@
 | Month Home Energy | e3dc/month/home/energy | [kWh] |
 | Month Solar Energy | e3dc/month/solar/energy | [kWh] |
 | PM Active Phase L1 | e3dc/pm/active_phases/L1 | (true/false) |
-| PM Active Phase L2 | e3dc/pm/actice_phases/L2 | (true/false) |
+| PM Active Phase L2 | e3dc/pm/active_phases/L2 | (true/false) |
 | PM Active Phase L3 | e3dc/pm/active_phases/L3 | (true/false) |
 | PM Energy L1 | e3dc/pm/energy/L1 | [Wh] |
 | PM Energy L2 | e3dc/pm/energy/L2 | [Wh] |

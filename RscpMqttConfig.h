@@ -15,10 +15,12 @@ typedef struct _config_t {
     int mqtt_qos;
     bool mqtt_retain;
     char *logfile;
+    bool verbose;
     int interval;
     bool pvi_requests;
     int pvi_tracker;
     bool pm_requests;
+    bool wallbox;
     bool daemon;
     bool dryrun;
     bool auto_refresh;

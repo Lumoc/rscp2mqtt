@@ -19,6 +19,8 @@ Supported topic areas are:
 - Values of the photovoltaic inverter (PVI)
 - Values of the emergency power supply (EP)
 
+New feature: [Wallbox](WALLBOX.md) support
+
 ## Prerequisite
 
 - An MQTT broker in your environment
@@ -100,6 +102,8 @@ PVI_TRACKER=2
 PM_REQUESTS=true
 // Auto refresh, default is false
 AUTO_REFRESH=false
+// Wallbox
+WALLBOX=false
 // Dryrun (Test mode. S10 requests: yes - MQTT publications: no), default is false
 DRYRUN=false
 ```
@@ -178,7 +182,7 @@ Be careful that the program runs only once.
 
 ## Logging
 
-If stdout is redirected to another process, only the log information is passed (issue #10).
+If stdout is redirected to another process or rscp2mqtt is started with option -s (silent mode), only the log information is passed (issue #10).
 
 ## Device Control
 
