@@ -159,7 +159,21 @@ cache_t cache[] = {
     { TAG_DB_HISTORY_DATA_YEAR, TAG_DB_GRID_POWER_OUT, 0, "e3dc/year/grid/energy/out", "%.0f", "", RSCP::eTypeFloat32, 1000, 0, false },
     { TAG_DB_HISTORY_DATA_YEAR, TAG_DB_CONSUMPTION, 0, "e3dc/year/home/energy", "%.0f", "", RSCP::eTypeFloat32, 1000, 0, false },
     { TAG_DB_HISTORY_DATA_YEAR, TAG_DB_CONSUMED_PRODUCTION, 0, "e3dc/year/consumed", "%.0f", "", RSCP::eTypeFloat32, 1, 0, false },
-    { TAG_DB_HISTORY_DATA_YEAR, TAG_DB_AUTARKY, 0, "e3dc/year/autarky", "%.0f", "", RSCP::eTypeFloat32, 1, 0, false }
+    { TAG_DB_HISTORY_DATA_YEAR, TAG_DB_AUTARKY, 0, "e3dc/year/autarky", "%.0f", "", RSCP::eTypeFloat32, 1, 0, false },
+    // WALLBOX
+    { 0, TAG_EMS_POWER_WB_ALL, 0, "e3dc/wallbox/total/power", "%i", "", RSCP::eTypeInt32, 1, 0, false },
+    { 0, TAG_EMS_POWER_WB_SOLAR, 0, "e3dc/wallbox/solar/power", "%i", "", RSCP::eTypeInt32, 1, 0, false },
+    { 0, TAG_EMS_BATTERY_TO_CAR_MODE, 0, "e3dc/wallbox/battery_to_car", "%i", "", RSCP::eTypeUChar8, 1, 0, false },
+    { 0, TAG_EMS_BATTERY_BEFORE_CAR_MODE, 0, "e3dc/wallbox/battery_before_car", "%i", "", RSCP::eTypeUChar8, 1, 0, false },
+    { TAG_WB_DATA, TAG_WB_DEVICE_STATE, 0, "e3dc/wallbox/status", "%s", "", RSCP::eTypeBool, 1, 0, false },
+    { TAG_WB_DATA, TAG_WB_PM_ACTIVE_PHASES, 0, "e3dc/wallbox/active_phases", "%i", "", RSCP::eTypeInt32, 1, 0, false },
+    { TAG_WB_EXTERN_DATA_ALG, TAG_WB_EXTERN_DATA, 1, "e3dc/wallbox/number_used_phases", "%i", "", RSCP::eTypeInt32, 1, 0, false },
+    { TAG_WB_EXTERN_DATA_ALG, TAG_WB_EXTERN_DATA, 3, "e3dc/wallbox/max_current", "%i", "", RSCP::eTypeInt32, 1, 0, false },
+    { TAG_WB_EXTERN_DATA_ALG, TAG_WB_EXTERN_DATA, 2, "e3dc/wallbox/plugged", "%s", "", RSCP::eTypeBool, 1, 8, false },
+    { TAG_WB_EXTERN_DATA_ALG, TAG_WB_EXTERN_DATA, 2, "e3dc/wallbox/locked", "%s", "", RSCP::eTypeBool, 1, 16, false },
+    { TAG_WB_EXTERN_DATA_ALG, TAG_WB_EXTERN_DATA, 2, "e3dc/wallbox/charging", "%s", "", RSCP::eTypeBool, 1, 32, false },
+    { TAG_WB_EXTERN_DATA_ALG, TAG_WB_EXTERN_DATA, 2, "e3dc/wallbox/canceled", "%s", "", RSCP::eTypeBool, 1, 64, false },
+    { TAG_WB_EXTERN_DATA_ALG, TAG_WB_EXTERN_DATA, 2, "e3dc/wallbox/sun_mode", "%s", "", RSCP::eTypeBool, 1, 128, false }
 };
 
 std::vector<cache_t> RscpMqttCache(cache, cache + sizeof(cache) / sizeof(cache_t));
@@ -179,7 +193,7 @@ typedef struct _rec_cache_t {
 } rec_cache_t;
 
 rec_cache_t rec_cache[] = {
-    { 0, TAG_EMS_REQ_START_MANUAL_CHARGE, "e3dc/set/manual_charge", PAYLOAD_REGEX_5_DIGIT, "", "^0$", "", "", RSCP::eTypeUInt32, -1, true },
+    { 0, TAG_EMS_REQ_START_MANUAL_CHARGE, "e3dc/set/manual_charge", PAYLOAD_REGEX_5_DIGIT, "", "", "", "", RSCP::eTypeUInt32, -1, true },
     { TAG_EMS_REQ_SET_POWER_SETTINGS, TAG_EMS_WEATHER_REGULATED_CHARGE_ENABLED, "e3dc/set/weather_regulation", "^true|on|1$", "1", "^false|off|0$", "0", "", RSCP::eTypeUChar8, -1, true },
     { TAG_EMS_REQ_SET_POWER_SETTINGS, TAG_EMS_POWER_LIMITS_USED, "e3dc/set/power_limits", "^true|on|1$", "true", "^false|off|0$", "false", "", RSCP::eTypeBool, -1, true },
     { TAG_EMS_REQ_SET_POWER_SETTINGS, TAG_EMS_MAX_CHARGE_POWER, "e3dc/set/max_charge_power", PAYLOAD_REGEX_5_DIGIT, "", "", "", "", RSCP::eTypeUInt32, -1, true },
@@ -189,6 +203,9 @@ rec_cache_t rec_cache[] = {
     { TAG_SE_REQ_SET_EP_RESERVE, TAG_SE_PARAM_EP_RESERVE, "e3dc/set/reserve/percent", PAYLOAD_REGEX_2_DIGIT, "", "", "", "", RSCP::eTypeFloat32, -1, true },
     { TAG_SE_REQ_SET_EP_RESERVE, TAG_SE_PARAM_EP_RESERVE_W, "e3dc/set/reserve/energy", PAYLOAD_REGEX_5_DIGIT, "", "", "", "", RSCP::eTypeFloat32, -1, true },
     { 0, 0, "e3dc/set/power_mode", "^auto$|^idle:[0-9]{1,4}$|^charge:[0-9]{1,5}:[0-9]{1,4}$|^discharge:[0-9]{1,5}:[0-9]{1,4}$|^grid_charge:[0-9]{1,5}:[0-9]{1,4}$", "", "", "", "", RSCP::eTypeBool, -1, true },
+    { 0, TAG_EMS_BATTERY_TO_CAR_MODE, "e3dc/set/wallbox/battery_to_car", "^true|on|1$", "1", "^false|off|0$", "0", "", RSCP::eTypeUChar8, -1, true },
+    { 0, TAG_EMS_BATTERY_BEFORE_CAR_MODE, "e3dc/set/wallbox/battery_before_car", "^true|on|1$", "1", "^false|off|0$", "0", "", RSCP::eTypeUChar8, -1, true },
+    { TAG_WB_REQ_DATA, TAG_WB_EXTERN_DATA, "e3dc/set/wallbox/control", "^solar:[0-9]{1,2}$|^mix:[0-9]{1,2}$|^stop$", "", "", "", "", RSCP::eTypeBool, -1, true },
     { 0, 0, "e3dc/set/requests/pm", "^true|1$", "true", "^false|0$", "false", "", RSCP::eTypeBool, -1, true },
     { 0, 0, "e3dc/set/requests/pvi", "^true|1$", "true", "^false|0$", "false", "", RSCP::eTypeBool, -1, true },
     { 0, 0, "e3dc/set/log", "^true|1$", "true", "", "", "", RSCP::eTypeBool, -1, true },
