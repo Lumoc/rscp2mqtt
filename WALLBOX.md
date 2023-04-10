@@ -33,7 +33,7 @@ The following topics are sent to the MQTT broker:
 
 In addition, these topics can be published to control the wallbox:
 
-Set solar or mix mode with the current in [A] (0..32 Ampere)
+Set solar or mix mode with the current in [A] (6..32 Ampere)
 ```
 mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/control" -m "solar:16"
 mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/control" -m "mix:8"
