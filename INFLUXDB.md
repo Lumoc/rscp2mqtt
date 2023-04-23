@@ -3,13 +3,18 @@
 This branch implements the data transfer to an InfluxDB time-series database.
 InfluxDB v1.x and v2.x are supported.
 
+Some topics will be published with every interval to get a continous value stream, i.e. all power topics.
+
 Clone this branch
 
 git clone --branch influxdb https://github.com/pvtom/rscp2mqtt.git
 
-Install libcurl (take a look on curl.se or use apt-get)
+Install libcurl
+```
+sudo apt-get install curl libcurl4-openssl-dev
+```
 
-Configuration InfluxDB v1.x
+Configuration for InfluxDB v1.x
 
 Add these lines to the .config file and adjust the values according to your environment:
 
@@ -42,7 +47,7 @@ Set a retention policy to limit data collection
 CREATE RETENTION POLICY "one_day" ON "e3dc" DURATION 24h REPLICATION 1 DEFAULT
 ```
 
-Configuration InfluxDB v2.x
+Configuration for InfluxDB v2.x
 
 Add and adjust the following lines in .config
 ```

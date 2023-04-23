@@ -21,16 +21,17 @@ Supported topic areas are:
 
 ## New features
 
-E3DC [Wallbox](WALLBOX.md) support
-[InfluxDB](INFLUXDB.md) time-series database
+- E3DC [Wallbox](WALLBOX.md) support
+- [InfluxDB](INFLUXDB.md) time-series database
 
 ## Prerequisite
 
 - An MQTT broker in your environment
-- rscp2mqtt needs the library libmosquitto. For installation please enter:
+- rscp2mqtt needs the libraries libmosquitto and libcurl. For installation please enter:
 
 ```
 sudo apt-get install libmosquitto-dev
+sudo apt-get install curl libcurl4-openssl-dev
 ```
 
 ## Cloning the Repository
@@ -107,9 +108,9 @@ PM_REQUESTS=true
 AUTO_REFRESH=false
 // Wallbox
 WALLBOX=false
-// Dryrun (Test mode. S10 requests: yes - MQTT publications: no), default is false
-DRYRUN=false
 ```
+
+Find InfluxDB configuartions in [InfluxDB](INFLUXDB.md).
 
 Start the program:
 
