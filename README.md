@@ -19,7 +19,10 @@ Supported topic areas are:
 - Values of the photovoltaic inverter (PVI)
 - Values of the emergency power supply (EP)
 
-New feature: [Wallbox](WALLBOX.md) support
+## New features
+
+E3DC [Wallbox](WALLBOX.md) support
+[InfluxDB](INFLUXDB.md) time-series database
 
 ## Prerequisite
 
@@ -285,3 +288,4 @@ mosquitto_pub -h localhost -t "e3dc/set/requests/pvi" -m true
 - The RSCP example application comes from E3/DC. According to E3/DC it can be distributed under the following conditions: `The authors or copyright holders, and in special E3/DC can not be held responsible for any damage caused by the software. Usage of the software is at your own risk. It may not be issued in copyright terms as a separate work.`
 - License of AES is included in the AES code files
 - Eclipse Mosquitto (https://github.com/eclipse/mosquitto) with EPL-2.0
+- libcurl (https://github.com/curl/curl/blob/master/COPYING)

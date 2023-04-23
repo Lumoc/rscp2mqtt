@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <curl/curl.h>
 #include "RscpProtocol.h"
 #include "RscpTags.h"
 #include "RscpMqttMapping.h"
@@ -24,6 +25,10 @@
 #define DEFAULT_INTERVAL_MAX    10
 #define SUBSCRIBE_TOPIC         "e3dc/set/#"
 
+#define MQTT_PORT_DEFAULT       1883
+#define INFLUXDB_PORT_DEFAULT   8086
+#define CURL_BUFFER_SIZE        1024
+
 static int iSocket = -1;
 static int iAuthenticated = 0;
 static AES aesEncrypter;
@@ -40,6 +45,9 @@ static int day;
 std::mutex mtx;
 
 static bool mqttRcvd = false;
+
+CURL *curl = NULL;
+struct curl_slist *headers = NULL;
 
 void logMessage(char *file, char *srcfile, int line, char *format, ...);
 
@@ -132,16 +140,59 @@ void mqttListener(struct mosquitto *m) {
     }
 }
 
+int insertInfluxDb(char *buffer) {
+    CURLcode res = CURLE_OK;
+
+    if (strlen(buffer)) {
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, buffer);
+        res = curl_easy_perform(curl);
+        if (res != CURLE_OK) logMessage(cfg.logfile, (char *)__FILE__, __LINE__, (char *)curl_easy_strerror(res));
+    }
+    return(res);
+}
+
+void handleInfluxDb(char *buffer, char *topic, char *payload) {
+    char line[128];
+
+    if (topic == NULL) {
+        insertInfluxDb(buffer);
+        return;
+    }
+
+    if (!strcmp(payload, "true")) sprintf(line, "%s,topic=%s value=1", cfg.influxdb_measurement, topic);
+    else if (!strcmp(payload, "false")) sprintf(line, "%s,topic=%s value=0", cfg.influxdb_measurement, topic);
+    else sprintf(line, "%s,topic=%s value=%s", cfg.influxdb_measurement, topic, payload);
+
+    if (strlen(buffer) + strlen(line) + 1 < CURL_BUFFER_SIZE) {
+        strcat(buffer, "\n");
+        strcat(buffer, line);
+    } else {
+        insertInfluxDb(buffer);
+        strcpy(buffer, "");
+        strcat(buffer, line);
+    }
+    return;
+}
+
 int handleMQTT(std::vector<RSCP_MQTT::cache_t> & v, int qos, bool retain) {
+    char buffer[CURL_BUFFER_SIZE];
     int rc = 0;
+
+    strcpy(buffer, "");
 
     for (std::vector<RSCP_MQTT::cache_t>::iterator it = v.begin(); it != v.end(); ++it) {
         if (it->publish && strcmp(it->topic, "") && strcmp(it->payload, "")) {
-            if (cfg.verbose) printf("MQTT: publish topic >%s< payload >%s<\n", it->topic, it->payload);
-            if (!cfg.dryrun) rc = mosquitto_publish(mosq, NULL, it->topic, strlen(it->payload), it->payload, qos, retain);
-            it->publish = false;
+            if (cfg.verbose) {
+               if (cfg.mqtt_pub) printf("MQTT ");
+               if (cfg.influxdb_on) printf("INFLUX ");
+               printf("publish topic >%s< payload >%s<\n", it->topic, it->payload);
+            }
+            if (cfg.mqtt_pub && mosq) rc = mosquitto_publish(mosq, NULL, it->topic, strlen(it->payload), it->payload, qos, retain);
+            if (cfg.influxdb_on && curl) handleInfluxDb(buffer, it->topic, it->payload);
+            if (it->publish == 1) it->publish = 0;
         }
     }
+    if (cfg.influxdb_on && curl) handleInfluxDb(buffer, NULL, NULL);
     return(rc);
 }
 
@@ -201,7 +252,7 @@ void logMessage(char *file, char *srcfile, int line, char *format, ...)
 
 int refreshCache(std::vector<RSCP_MQTT::cache_t> & v) {
     for (std::vector<RSCP_MQTT::cache_t>::iterator it = v.begin(); it != v.end(); ++it) {
-        if (strcmp(it->payload, "")) it->publish = true;
+        if ((it->publish == 0) && strcmp(it->payload, "")) it->publish = 1;
     }
     return(1);
 }
@@ -218,7 +269,7 @@ int storeIntegerValue(std::vector<RSCP_MQTT::cache_t> & c, uint32_t container, u
             }
             if (strcmp(it->payload, buf)) {
                 strcpy(it->payload, buf);
-                it->publish = true;
+                if (it->publish == 0) it->publish = 1;
             }
         }
     }
@@ -237,7 +288,7 @@ int storeResponseValue(std::vector<RSCP_MQTT::cache_t> & c, RscpProtocol *protoc
                     else strcpy(buf, "false");
                     if (strcmp(it->payload, buf)) {
                         strcpy(it->payload, buf);
-                        it->publish = true;
+                        if (it->publish == 0) it->publish = 1;
                     }
                     break;
                 }
@@ -245,7 +296,7 @@ int storeResponseValue(std::vector<RSCP_MQTT::cache_t> & c, RscpProtocol *protoc
                     snprintf(buf, PAYLOAD_SIZE, it->fstring, protocol->getValueAsInt32(response));
                     if (strcmp(it->payload, buf)) {
                         strcpy(it->payload, buf);
-                        it->publish = true;
+                        if (it->publish == 0) it->publish = 1;
                     }
                     break;
                 }
@@ -258,7 +309,7 @@ int storeResponseValue(std::vector<RSCP_MQTT::cache_t> & c, RscpProtocol *protoc
                     }
                     if (strcmp(it->payload, buf)) {
                         strcpy(it->payload, buf);
-                        it->publish = true;
+                        if (it->publish == 0) it->publish = 1;
                     }
                     break;
                 }
@@ -266,7 +317,7 @@ int storeResponseValue(std::vector<RSCP_MQTT::cache_t> & c, RscpProtocol *protoc
                     snprintf(buf, PAYLOAD_SIZE, it->fstring, protocol->getValueAsChar8(response));
                     if (strcmp(it->payload, buf)) {
                         strcpy(it->payload, buf);
-                        it->publish = true;
+                        if (it->publish == 0) it->publish = 1;
                     }
                     break;
                 }
@@ -279,7 +330,7 @@ int storeResponseValue(std::vector<RSCP_MQTT::cache_t> & c, RscpProtocol *protoc
                     }
                     if (strcmp(it->payload, buf)) {
                         strcpy(it->payload, buf);
-                        it->publish = true;
+                        if (it->publish == 0) it->publish = 1;
                     }
                     break;
                 }
@@ -287,7 +338,7 @@ int storeResponseValue(std::vector<RSCP_MQTT::cache_t> & c, RscpProtocol *protoc
                     snprintf(buf, PAYLOAD_SIZE, it->fstring, protocol->getValueAsFloat32(response) / it->divisor);
                     if (strcmp(it->payload, buf)) {
                         strcpy(it->payload, buf);
-                        it->publish = true;
+                        if (it->publish == 0) it->publish = 1;
                     }
                     break;
                 }
@@ -295,7 +346,7 @@ int storeResponseValue(std::vector<RSCP_MQTT::cache_t> & c, RscpProtocol *protoc
                     snprintf(buf, PAYLOAD_SIZE, it->fstring, protocol->getValueAsDouble64(response) / it->divisor);
                     if (strcmp(it->payload, buf)) {
                         strcpy(it->payload, buf);
-                        it->publish = true;
+                        if (it->publish == 0) it->publish = 1;
                     }
                     break;
                 }
@@ -303,7 +354,7 @@ int storeResponseValue(std::vector<RSCP_MQTT::cache_t> & c, RscpProtocol *protoc
                     snprintf(buf, PAYLOAD_SIZE, it->fstring, protocol->getValueAsString(response).c_str());
                     if (strcmp(it->payload, buf)) {
                         strcpy(it->payload, buf);
-                        it->publish = true;
+                        if (it->publish == 0) it->publish = 1;
                     }
                     break;
                 }
@@ -1042,6 +1093,8 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
+    strcpy(cfg.mqtt_host, "");
+    cfg.mqtt_port = MQTT_PORT_DEFAULT;
     cfg.mqtt_auth = false;
     cfg.mqtt_qos = 0;
     cfg.mqtt_retain = false;
@@ -1051,7 +1104,10 @@ int main(int argc, char *argv[]){
     cfg.pm_requests = true;
     cfg.wallbox = false;
     cfg.auto_refresh = false;
-    cfg.dryrun = false;
+    strcpy(cfg.influxdb_host, "");
+    cfg.influxdb_port = INFLUXDB_PORT_DEFAULT;
+    cfg.mqtt_pub = true;
+    cfg.influxdb_on = false;
     cfg.logfile = NULL;
 
     while (fgets(line, sizeof(line), fp)) {
@@ -1082,6 +1138,22 @@ int main(int argc, char *argv[]){
                 cfg.mqtt_retain = true;
             else if (strcasecmp(key, "MQTT_QOS") == 0)
                 cfg.mqtt_qos = atoi(value);
+            else if (strcasecmp(key, "INFLUXDB_HOST") == 0)
+                strcpy(cfg.influxdb_host, value);
+            else if (strcasecmp(key, "INFLUXDB_PORT") == 0)
+                cfg.influxdb_port = atoi(value);
+            else if (strcasecmp(key, "INFLUXDB_VERSION") == 0)
+                cfg.influxdb_version = atoi(value);
+            else if (strcasecmp(key, "INFLUXDB_1_DB") == 0)
+                strcpy(cfg.influxdb_db, value);
+            else if (strcasecmp(key, "INFLUXDB_2_ORGA") == 0)
+                strcpy(cfg.influxdb_orga, value);
+            else if (strcasecmp(key, "INFLUXDB_2_BUCKET") == 0)
+                strcpy(cfg.influxdb_bucket, value);
+            else if (strcasecmp(key, "INFLUXDB_2_TOKEN") == 0)
+                strcpy(cfg.influxdb_token, value);
+            else if (strcasecmp(key, "INFLUXDB_MEASUREMENT") == 0)
+                strcpy(cfg.influxdb_measurement, value);
             else if (strcasecmp(key, "LOGFILE") == 0) {
                 cfg.logfile = (char *)malloc(sizeof(char) * strlen(value) + 1);
                 strcpy(cfg.logfile, value);
@@ -1095,8 +1167,10 @@ int main(int argc, char *argv[]){
                 cfg.pm_requests = true;
             else if ((strcasecmp(key, "WALLBOX") == 0) && (strcasecmp(value, "true") == 0))
                 cfg.wallbox = true;
-            else if ((strcasecmp(key, "DRYRUN") == 0) && (strcasecmp(value, "true") == 0))
-                cfg.dryrun = true;
+            else if (((strcasecmp(key, "DISABLE_MQTT_PUBLISH") == 0) || (strcasecmp(key, "DRYRUN") == 0)) && (strcasecmp(value, "true") == 0))
+                cfg.mqtt_pub = false;
+            else if ((strcasecmp(key, "ENABLE_INFLUXDB") == 0) && (strcasecmp(value, "true") == 0))
+                cfg.influxdb_on = true;
             else if ((strcasecmp(key, "AUTO_REFRESH") == 0) && (strcasecmp(value, "true") == 0))
                 cfg.auto_refresh = true;
         }
@@ -1107,15 +1181,22 @@ int main(int argc, char *argv[]){
     if (cfg.interval > DEFAULT_INTERVAL_MAX) cfg.interval = DEFAULT_INTERVAL_MAX;
     if ((cfg.pvi_tracker != 1) && (cfg.pvi_tracker != 2)) cfg.pvi_tracker = 1;
     if ((cfg.mqtt_qos < 0) || (cfg.mqtt_qos > 2)) cfg.mqtt_qos = 0;
+    if ((cfg.influxdb_version < 1) || (cfg.influxdb_version > 2)) cfg.influxdb_version = 1;
 
     sort(RSCP_MQTT::RscpMqttReceiveCache.begin(), RSCP_MQTT::RscpMqttReceiveCache.end(), RSCP_MQTT::compareRecCache);
 
     printf("Connecting...\n");
     printf("E3DC system %s:%u user: %s\n", cfg.e3dc_ip, cfg.e3dc_port, cfg.e3dc_user);
     printf("MQTT broker %s:%u qos = %i retain = %s\n", cfg.mqtt_host, cfg.mqtt_port, cfg.mqtt_qos, cfg.mqtt_retain ? "true" : "false");
+    if (cfg.influxdb_on && (cfg.influxdb_version == 1)) {
+        printf("INFLUXDB %s:%u db = %s measurement = %s\n", cfg.influxdb_host, cfg.influxdb_port, cfg.influxdb_db, cfg.influxdb_measurement);
+        if (!strcmp(cfg.influxdb_host, "") || !strcmp(cfg.influxdb_db, "") || !strcmp(cfg.influxdb_measurement, "")) printf("Error: INFLUXDB not configured correctly\n");
+    } else if (cfg.influxdb_on && (cfg.influxdb_version == 2)) {
+        printf("INFLUXDB2 %s:%u orga = %s bucket = %s measurement = %s\n", cfg.influxdb_host, cfg.influxdb_port, cfg.influxdb_orga, cfg.influxdb_bucket, cfg.influxdb_measurement);
+        if (!strcmp(cfg.influxdb_host, "") || !strcmp(cfg.influxdb_orga, "") || !strcmp(cfg.influxdb_bucket, "") || !strcmp(cfg.influxdb_measurement, "")) printf("Error: INFLUXDB2 not configured correctly\n");
+    }
     printf("Fetching data every ");
     if (cfg.interval == 1) printf("second.\n"); else printf("%i seconds.\n", cfg.interval);
-    if (cfg.dryrun) printf("DRYRUN mode: Nothing will be published to the MQTT broker.\n");
     printf("Requesting PVI data = %s", cfg.pvi_requests ? "true" : "false");
     if (cfg.pvi_requests) printf(" (%d strings/trackers)", cfg.pvi_tracker);
     printf("\n");
@@ -1157,6 +1238,27 @@ int main(int argc, char *argv[]){
 
     // MQTT init
     mosquitto_lib_init();
+
+    // CURL init
+    if (cfg.influxdb_on) curl = curl_easy_init();
+
+    if (curl) {
+        char buffer[512];
+
+        headers = curl_slist_append(headers, "Content-Type: text/plain");
+        headers = curl_slist_append(headers, "Accept: application/json");
+
+        if (cfg.influxdb_version == 1) {
+            sprintf(buffer, "http://%s:%d/write?db=%s", cfg.influxdb_host, cfg.influxdb_port, cfg.influxdb_db);
+        } else {
+            sprintf(buffer, "Authorization: Token %s", cfg.influxdb_token);
+            headers = curl_slist_append(headers, buffer);
+            sprintf(buffer, "http://%s:%d/api/v2/write?org=%s&bucket=%s", cfg.influxdb_host, cfg.influxdb_port, cfg.influxdb_orga, cfg.influxdb_bucket);
+        }
+
+        curl_easy_setopt(curl, CURLOPT_URL, buffer);
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    }
 
     // endless application which re-connections to server on connection lost
     while (true) {
@@ -1206,6 +1308,10 @@ int main(int argc, char *argv[]){
 
     // MQTT cleanup
     mosquitto_lib_cleanup();
+
+    // CURL cleanup
+    if (curl) curl_easy_cleanup(curl);
+    if (headers) curl_slist_free_all(headers);
 
     if (cfg.logfile) free(cfg.logfile);
 

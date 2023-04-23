@@ -14,6 +14,14 @@ typedef struct _config_t {
     bool mqtt_auth;
     int mqtt_qos;
     bool mqtt_retain;
+    uint32_t influxdb_version;
+    char influxdb_host[128];
+    uint32_t influxdb_port;
+    char influxdb_db[128];
+    char influxdb_measurement[128];
+    char influxdb_orga[128];
+    char influxdb_bucket[128];
+    char influxdb_token[128];
     char *logfile;
     bool verbose;
     int interval;
@@ -22,7 +30,8 @@ typedef struct _config_t {
     bool pm_requests;
     bool wallbox;
     bool daemon;
-    bool dryrun;
+    bool mqtt_pub;
+    bool influxdb_on;
     bool auto_refresh;
 } config_t;
 
