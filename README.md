@@ -1,10 +1,10 @@
 # RSCP2MQTT - Bridge between an E3/DC S10 device and an MQTT broker
-[![GitHub sourcecode](https://img.shields.io/badge/Source-GitHub-green)](https://github.com/pvtom/rscp2mqtt/)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/pvtom/rscp2mqtt)](https://github.com/pvtom/rscp2mqtt/releases/latest)
-[![GitHub last commit](https://img.shields.io/github/last-commit/pvtom/rscp2mqtt)](https://github.com/pvtom/rscp2mqtt/commits)
-[![GitHub issues](https://img.shields.io/github/issues/pvtom/rscp2mqtt)](https://github.com/pvtom/rscp2mqtt/issues)
-[![GitHub pull requests](https://img.shields.io/github/issues-pr/pvtom/rscp2mqtt)](https://github.com/pvtom/rscp2mqtt/pulls)
-[![GitHub](https://img.shields.io/github/license/pvtom/rscp2mqtt)](https://github.com/pvtom/rscp2mqtt/blob/main/LICENSE)
+[![GitHub sourcecode](https://img.shields.io/badge/Source-GitHub-green)](https://github.com/lumoc/rscp2mqtt/)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/lumoc/rscp2mqtt)](https://github.com/lumoc/rscp2mqtt/releases/latest)
+[![GitHub last commit](https://img.shields.io/github/last-commit/lumoc/rscp2mqtt)](https://github.com/lumoc/rscp2mqtt/commits)
+[![GitHub issues](https://img.shields.io/github/issues/lumoc/rscp2mqtt)](https://github.com/lumoc/rscp2mqtt/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/lumoc/rscp2mqtt)](https://github.com/lumoc/rscp2mqtt/pulls)
+[![GitHub](https://img.shields.io/github/license/lumoc/rscp2mqtt)](https://github.com/lumoc/rscp2mqtt/blob/main/LICENSE)
 
 This software module connects a home power station from E3/DC to an MQTT broker.
 It uses the RSCP interface of the S10 device.
@@ -30,10 +30,12 @@ For continuous provision of values, you can configure several topics that are pu
 
 ## New Features
 
+- Change topic for better uniqueness
+- Better support for loxberry
 - E3/DC [wallbox](WALLBOX.md) topics
 - [InfluxDB](INFLUXDB.md) support
 - Topics for temperatures (battery, PVI)
-- Docker image at https://hub.docker.com/r/pvtom/rscp2mqtt
+- Docker image at https://hub.docker.com/r/lumoc/rscp2mqtt
 
 ## Docker
 
@@ -57,7 +59,7 @@ sudo apt-get install curl libcurl4-openssl-dev
 
 ```
 sudo apt-get install git # if necessary
-git clone https://github.com/pvtom/rscp2mqtt.git
+git clone https://github.com/lumoc/rscp2mqtt.git
 cd rscp2mqtt
 ```
 
@@ -140,8 +142,8 @@ DISABLE_MQTT_PUBLISH=false
 // Wallbox, default is false
 WALLBOX=true
 // topics to be published in each cycle (regular expressions)
-FORCE_PUB=e3dc/[a-z]+/power
-FORCE_PUB=e3dc/battery/soc
+FORCE_PUB=rscp2mqtt/[a-z]+/power
+FORCE_PUB=rscp2mqtt/battery/soc
 ```
 
 Find InfluxDB configurations in [InfluxDB](INFLUXDB.md).
@@ -174,12 +176,12 @@ Connecting to broker localhost:1883
 Connected successfully
 
 Request cyclic data at 2022-01-08 09:59:56 (1641632396)
-MQTT: publish topic >e3dc/solar/power< payload >2663<
-MQTT: publish topic >e3dc/battery/power< payload >1953<
-MQTT: publish topic >e3dc/home/power< payload >665<
-MQTT: publish topic >e3dc/grid/power< payload >-45<
-MQTT: publish topic >e3dc/addon/power< payload >0<
-MQTT: publish topic >e3dc/coupling/mode< payload >3<
+MQTT: publish topic >rscp2mqtt/solar/power< payload >2663<
+MQTT: publish topic >rscp2mqtt/battery/power< payload >1953<
+MQTT: publish topic >rscp2mqtt/home/power< payload >665<
+MQTT: publish topic >rscp2mqtt/grid/power< payload >-45<
+MQTT: publish topic >rscp2mqtt/addon/power< payload >0<
+MQTT: publish topic >rscp2mqtt/coupling/mode< payload >3<
 ...
 ```
 
@@ -188,7 +190,7 @@ Check the configuration if the connections are not established.
 If you use the Mosquitto tools you can subscribe the topics with (here without user / password)
 
 ```
-mosquitto_sub -h localhost -p 1883 -t 'e3dc/#' -v
+mosquitto_sub -h localhost -p 1883 -t 'rscp2mqtt/#' -v
 ```
 
 Stop `rscp2mqtt` with Crtl-C and start it in the background.
@@ -228,68 +230,68 @@ If stdout is redirected to another process or rscp2mqtt is started with option -
 
 ## Device Control
 
-rscp2mqtt subscribes to the root topic "e3dc/set/#" and forwards incoming requests to the S10 home power station. In this way, the unit can be controlled and changes made to its configuration.
+rscp2mqtt subscribes to the root topic "rscp2mqtt/set/#" and forwards incoming requests to the S10 home power station. In this way, the unit can be controlled and changes made to its configuration.
 
 ### Battery Charging
 
 Start battery charging manually (payload is the energy [Wh] to charge)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/manual_charge" -m 1000
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/manual_charge" -m 1000
 ```
 
 ### Weather Regulation
 
 Set weather regulation (true/false)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/weather_regulation" -m true
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/weather_regulation" -m true
 ```
 
 ### Power Limits
 
 Set limits for battery charging and discharging (true/false)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/power_limits" -m true
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/power_limits" -m true
 ```
 Set the charging and discharging power limits in [W]
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/max_charge_power" -m 2300
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/max_discharge_power" -m 4500
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/max_charge_power" -m 2300
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/max_discharge_power" -m 4500
 ```
 ### Emergency Power
 
 Set battery reserve for emergency power
 ```
-mosquitto_pub -h localhost -t "e3dc/set/reserve/energy" -m 1500 # in [Wh]
+mosquitto_pub -h localhost -t "rscp2mqtt/set/reserve/energy" -m 1500 # in [Wh]
 # or
-mosquitto_pub -h localhost -t "e3dc/set/reserve/percent" -m 10 # in [%]
+mosquitto_pub -h localhost -t "rscp2mqtt/set/reserve/percent" -m 10 # in [%]
 ```
 
 ### Power Management
 
-Control the power management with "e3dc/set/power_mode":
+Control the power management with "rscp2mqtt/set/power_mode":
 
 The functionality can be used to intervene in the regulation of the power management.
 Caution: This function can be used to bypass a set feed-in reduction. Use this functionality at your own risk.
 
 Automatic / normal mode
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/power_mode" -m "auto"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/power_mode" -m "auto"
 ```
 Idle mode (number of cycles)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/power_mode" -m "idle:60"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/power_mode" -m "idle:60"
 ```
 Discharge mode (power in [W], number of cycles)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/power_mode" -m "discharge:2000:60"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/power_mode" -m "discharge:2000:60"
 ```
 Charge mode (power in [W], number of cycles)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/power_mode" -m "charge:2000:60"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/power_mode" -m "charge:2000:60"
 ```
 Grid charge mode (power in [W], number of cycles)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/power_mode" -m "grid_charge:2000:60"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/power_mode" -m "grid_charge:2000:60"
 ```
 
 After the time has elapsed (number of cycles multiplied by the configured interval) plus a few seconds, the system automatically returns to normal mode.
@@ -303,56 +305,56 @@ AUTO_REFRESH=true
 
 Set solar or mix mode with the current in [A] (6..32 Ampere)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/control" -m "solar:16"
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/control" -m "mix:8"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/control" -m "solar:16"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/control" -m "mix:8"
 ```
 
 Stop charging
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/control" -m "stop"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/control" -m "stop"
 ```
 
 Set battery to car mode (true/1/false/0)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/battery_to_car" -m true
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/battery_to_car" -m true
 ```
 
 Set battery before car mode (true/1/false/0)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/battery_before_car" -m true
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/battery_before_car" -m true
 ```
 
 Set battery discharge until (%)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/battery_discharge_until" -m 80
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/battery_discharge_until" -m 80
 ```
 
 Set disable charging battery at mix mode (true/1/false/0)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/disable_battery_at_mix_mode" -m true
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/disable_battery_at_mix_mode" -m true
 ```
 
 ## System Commands
 
 Post all topics and payloads to the MQTT broker again
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/force" -m 1
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/force" -m 1
 ```
 Log all topics and payloads to the log file
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/log" -m 1
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/log" -m 1
 ```
 Set a new refresh interval (1..10 seconds)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/interval" -m 2
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/interval" -m 2
 ```
 Set PM requests on or off (true/false)
 ```
-mosquitto_pub -h localhost -t "e3dc/set/requests/pm" -m true
+mosquitto_pub -h localhost -t "rscp2mqtt/set/requests/pm" -m true
 ```
 Set PVI requests on or off (true/false)
 ```
-mosquitto_pub -h localhost -t "e3dc/set/requests/pvi" -m true
+mosquitto_pub -h localhost -t "rscp2mqtt/set/requests/pvi" -m true
 ```
 
 ## Used Libraries and Licenses
@@ -361,3 +363,4 @@ mosquitto_pub -h localhost -t "e3dc/set/requests/pvi" -m true
 - License of AES is included in the AES code files
 - Eclipse Mosquitto (https://github.com/eclipse/mosquitto) with EPL-2.0
 - libcurl (https://github.com/curl/curl/blob/master/COPYING)
+- rscp2mqtt from pvtom (https://github.com/pvtom/rscp2mqtt)

@@ -17,21 +17,21 @@ The following topics are sent to the MQTT broker:
 
 | Device / Tag | MQTT Topic | Values / [Unit] |
 | --- | --- | --- |
-| Wallbox battery | e3dc/wallbox/battery_to_car | |
-| Wallbox battery | e3dc/wallbox/battery_before_car | |
-| New: Wallbox battery | e3dc/wallbox/battery_discharge_until | % |
-| New: Wallbox battery | e3dc/wallbox/disable_battery_at_mix_mode | (true/false) |
-| Wallbox canceled | e3dc/wallbox/canceled | (true/false) |
-| Wallbox charging | e3dc/wallbox/charging | (true/false) |
-| Wallbox current | e3dc/wallbox/max_current | (true/false) |
-| Wallbox locked | e3dc/wallbox/locked | (true/false) |
-| Wallbox mode | e3dc/wallbox/sun_mode | (true/false) |
-| Wallbox phases | e3dc/wallbox/active_phases | |
-| Wallbox phases | e3dc/wallbox/number_used_phases | |
-| Wallbox plugged | e3dc/wallbox/plugged | (true/false) |
-| Wallbox power | e3dc/wallbox/total/power | [W] |
-| Wallbox power | e3dc/wallbox/solar/power | [W] |
-| Wallbox status | e3dc/wallbox/status | |
+| Wallbox battery | rscp2mqtt/wallbox/battery_to_car | |
+| Wallbox battery | rscp2mqtt/wallbox/battery_before_car | |
+| New: Wallbox battery | rscp2mqtt/wallbox/battery_discharge_until | % |
+| New: Wallbox battery | rscp2mqtt/wallbox/disable_battery_at_mix_mode | (true/false) |
+| Wallbox canceled | rscp2mqtt/wallbox/canceled | (true/false) |
+| Wallbox charging | rscp2mqtt/wallbox/charging | (true/false) |
+| Wallbox current | rscp2mqtt/wallbox/max_current | (true/false) |
+| Wallbox locked | rscp2mqtt/wallbox/locked | (true/false) |
+| Wallbox mode | rscp2mqtt/wallbox/sun_mode | (true/false) |
+| Wallbox phases | rscp2mqtt/wallbox/active_phases | |
+| Wallbox phases | rscp2mqtt/wallbox/number_used_phases | |
+| Wallbox plugged | rscp2mqtt/wallbox/plugged | (true/false) |
+| Wallbox power | rscp2mqtt/wallbox/total/power | [W] |
+| Wallbox power | rscp2mqtt/wallbox/solar/power | [W] |
+| Wallbox status | rscp2mqtt/wallbox/status | |
 
 The new topics are based on additional tags introduced by https://github.com/nischram/E3dcGui
 
@@ -39,31 +39,31 @@ In addition, these topics can be published to control the wallbox:
 
 Set solar or mix mode with the current in [A] (6..32 Ampere)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/control" -m "solar:16"
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/control" -m "mix:8"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/control" -m "solar:16"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/control" -m "mix:8"
 ```
 
 Stop charging
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/control" -m "stop"
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/control" -m "stop"
 ```
 
 Set battery to car mode (true/1/false/0)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/battery_to_car" -m true
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/battery_to_car" -m true
 ```
 
 Set battery before car mode (true/1/false/0)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/battery_before_car" -m true
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/battery_before_car" -m true
 ```
 
 Set battery discharge until (%)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/battery_discharge_until" -m 80
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/battery_discharge_until" -m 80
 ```
 
 Set disable charging battery at mix mode (true/1/false/0)
 ```
-mosquitto_pub -h localhost -p 1883 -t "e3dc/set/wallbox/disable_battery_at_mix_mode" -m true
+mosquitto_pub -h localhost -p 1883 -t "rscp2mqtt/set/wallbox/disable_battery_at_mix_mode" -m true
 ```

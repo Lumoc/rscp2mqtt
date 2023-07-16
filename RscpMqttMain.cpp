@@ -25,7 +25,7 @@
 #define CONFIG_FILE             ".config"
 #define DEFAULT_INTERVAL_MIN    1
 #define DEFAULT_INTERVAL_MAX    10
-#define SUBSCRIBE_TOPIC         "e3dc/set/#"
+#define SUBSCRIBE_TOPIC         "rscp2mqtt/set/#"
 
 #define MQTT_PORT_DEFAULT       1883
 
@@ -84,7 +84,7 @@ int storeMQTTReceivedValue(std::vector<RSCP_MQTT::rec_cache_t> & c, char *topic,
     return(0);
 }
 
-// topic: e3dc/set/power_mode payload: auto / idle:60 (cycles) / discharge:2000:60 (Watt:cycles) / charge:2000:60 (Watt und sec) / grid_charge:2000:60 (Watt:cycles)
+// topic: rscp2mqtt/set/power_mode payload: auto / idle:60 (cycles) / discharge:2000:60 (Watt:cycles) / charge:2000:60 (Watt und sec) / grid_charge:2000:60 (Watt:cycles)
 int handleSetPower(std::vector<RSCP_MQTT::rec_cache_t> & c, uint32_t container, char *payload) {
     char cycles[12];
     char cmd[12];
@@ -631,14 +631,14 @@ int createRequest(SRscpFrameBuffer * frameBuffer) {
                 if ((it->done == false) || (it->refresh_count > 0)) {
                     if (it->refresh_count > 0) it->refresh_count = it->refresh_count - 1;
                     if (!it->container && !it->tag) { //system call
-                        if (!strcmp(it->topic, "e3dc/set/log")) logCache(RSCP_MQTT::RscpMqttCache, cfg.logfile, buffer);
-                        if (!strcmp(it->topic, "e3dc/set/force")) refreshCache(RSCP_MQTT::RscpMqttCache);
-                        if ((!strcmp(it->topic, "e3dc/set/interval")) && (atoi(it->payload) >= DEFAULT_INTERVAL_MIN) && (atoi(it->payload) <= DEFAULT_INTERVAL_MAX)) cfg.interval = atoi(it->payload);
-                        if ((!strcmp(it->topic, "e3dc/set/power_mode")) && cfg.auto_refresh) handleSetPower(RSCP_MQTT::RscpMqttReceiveCache, TAG_EMS_REQ_SET_POWER, it->payload);
-                        if (!strcmp(it->topic, "e3dc/set/requests/pm")) {
+                        if (!strcmp(it->topic, "rscp2mqtt/set/log")) logCache(RSCP_MQTT::RscpMqttCache, cfg.logfile, buffer);
+                        if (!strcmp(it->topic, "rscp2mqtt/set/force")) refreshCache(RSCP_MQTT::RscpMqttCache);
+                        if ((!strcmp(it->topic, "rscp2mqtt/set/interval")) && (atoi(it->payload) >= DEFAULT_INTERVAL_MIN) && (atoi(it->payload) <= DEFAULT_INTERVAL_MAX)) cfg.interval = atoi(it->payload);
+                        if ((!strcmp(it->topic, "rscp2mqtt/set/power_mode")) && cfg.auto_refresh) handleSetPower(RSCP_MQTT::RscpMqttReceiveCache, TAG_EMS_REQ_SET_POWER, it->payload);
+                        if (!strcmp(it->topic, "rscp2mqtt/set/requests/pm")) {
                             if (!strcmp(it->payload, "true")) cfg.pm_requests = true; else cfg.pm_requests = false;
                         }
-                        if (!strcmp(it->topic, "e3dc/set/requests/pvi")) {
+                        if (!strcmp(it->topic, "rscp2mqtt/set/requests/pvi")) {
                             if (!strcmp(it->payload, "true")) cfg.pvi_requests = true; else cfg.pvi_requests = false;
                         }
                         it->done = true;
@@ -864,7 +864,7 @@ int handleResponseValue(RscpProtocol *protocol, SRscpValue *response) {
                     storeResponseValue(RSCP_MQTT::RscpMqttCache, protocol, &(containerData[i]), response->tag, 0);
                     for (uint8_t c = 0; c < cfg.pvi_temp_count; c++) {
                         RSCP_MQTT::cache_t cache = {TAG_PVI_TEMPERATURE, TAG_PVI_VALUE, c, "", "%0.1f", "", RSCP::eTypeFloat32, 1, 0, false};
-                        sprintf(cache.topic, "e3dc/pvi/temperature/%d", c + 1);
+                        sprintf(cache.topic, "rscp2mqtt/pvi/temperature/%d", c + 1);
                         RSCP_MQTT::RscpMqttCache.push_back(cache);
                     }
                     break;
